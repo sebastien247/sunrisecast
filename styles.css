@@ -39,6 +39,40 @@ body {
 
 [hidden] { display: none !important; }
 
+/* ---------------------------------------------------------- langue */
+
+.lang-switch {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 30;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(10, 11, 20, 0.6);
+  backdrop-filter: blur(6px);
+}
+
+.lang-switch button {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.lang-switch button:hover { color: var(--ink-soft); background: transparent; }
+
+.lang-switch button[aria-pressed="true"] {
+  background: var(--bg-raise);
+  color: var(--ink);
+}
+
 /* ---------------------------------------------------------- accueil */
 
 .setup {

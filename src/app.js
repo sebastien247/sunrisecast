@@ -2,13 +2,14 @@ import {subsolarPoint, nextSunset, nextSunrise, isDaylight} from './sun.js';
 import {render} from './map.js';
 import {searchCities, toPlace} from './data/cities.js';
 import {decodePair, buildUrl, encodePair} from './link.js';
+import {t, tCount, localeTag, detectLanguage, loadStoredLanguage, storeLanguage} from './i18n.js';
 import * as SunCalc from './vendor/suncalc.js';
 
 const COLOR_A = '#ffce7a';
 const COLOR_B = '#8fd3ff';
 
 const el = (id) => document.getElementById(id);
-const state = {pair: null, timer: null, lastMapPaint: 0, notifyTimer: null};
+const state = {pair: null, timer: null, lastMapPaint: 0, notifyTimer: null, lang: 'en'};
 
 // ---------------------------------------------------------------- calculs
 
@@ -53,23 +54,32 @@ function computeMoment(now, a, b) {
 
 // ---------------------------------------------------------------- formats
 
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+// Gabarits entiers par cas (jamais de fragments traduits recollés) : la position des
+// unités par rapport au nombre change d'une langue à l'autre (« 4h 26 » sans espace en
+// anglais, « 4 h 26 » avec espace en français), donc c'est le dictionnaire qui décide.
 function formatDelta(ms) {
   const s = Math.max(0, Math.round(ms / 1000));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  if (h > 0) return `${h} h ${String(m).padStart(2, '0')}`;
-  if (m > 0) return `${m} min ${String(sec).padStart(2, '0')}`;
-  return `${sec} s`;
+  if (h > 0) return t(state.lang, 'deltaHourMin', {h, mm: pad2(m)});
+  if (m > 0) return t(state.lang, 'deltaMinSec', {m, ss: pad2(sec)});
+  return t(state.lang, 'deltaSeconds', {s: sec});
 }
 
+// Pluriel correct dans les deux langues (jamais de « s » collé d'office : « 1 heure »,
+// pas « 1 heures »).
 function formatGap(ms) {
   const totalMin = Math.round(Math.abs(ms) / 60000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (h === 0) return `${m} minutes`;
-  if (m === 0) return h === 1 ? '1 heure' : `${h} heures`;
-  return `${h} h ${String(m).padStart(2, '0')}`;
+  if (h === 0) return tCount(state.lang, m, 'unitMinuteOne', 'unitMinuteOther');
+  if (m === 0) return tCount(state.lang, h, 'unitHourOne', 'unitHourOther');
+  return t(state.lang, 'deltaHourMin', {h, mm: pad2(m)});
 }
 
 // Correctif : `timeZone: place.tz || undefined` faisait retomber Intl sur le fuseau
@@ -79,7 +89,7 @@ function formatGap(ms) {
 function localTime(date, place) {
   if (!date || !place.tz) return null;
   try {
-    return new Intl.DateTimeFormat('fr-FR', {
+    return new Intl.DateTimeFormat(localeTag(state.lang), {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: place.tz
@@ -94,7 +104,7 @@ function localTime(date, place) {
 function absoluteTimeLabel(date, place) {
   if (!date || !place.tz) return null;
   try {
-    return new Intl.DateTimeFormat('fr-FR', {
+    return new Intl.DateTimeFormat(localeTag(state.lang), {
       weekday: 'short',
       hour: '2-digit',
       minute: '2-digit',
@@ -110,7 +120,9 @@ function absoluteTimeLabel(date, place) {
 function relativeTimeLabel(date, now) {
   if (!date) return null;
   const diff = date.getTime() - now.getTime();
-  return diff >= 0 ? `dans ${formatDelta(diff)}` : `il y a ${formatDelta(-diff)}`;
+  return diff >= 0
+    ? t(state.lang, 'relativeIn', {delta: formatDelta(diff)})
+    : t(state.lang, 'relativeAgo', {delta: formatDelta(-diff)});
 }
 
 // ---------------------------------------------------------------- rendu
@@ -137,8 +149,8 @@ function paint() {
   }
 
   if (moment.impossible) {
-    el('headline').textContent = 'Aucun coucher de soleil dans l’année à venir sur ces deux points.';
-    el('subline').textContent = 'Les deux lieux sont en régime polaire permanent.';
+    el('headline').textContent = t(state.lang, 'noSunsetHeadline');
+    el('subline').textContent = t(state.lang, 'noSunsetSubline');
     el('gap').textContent = '';
     return;
   }
@@ -147,21 +159,22 @@ function paint() {
   const untilFirst = first.at - now;
 
   const headline = untilFirst > 0
-    ? `Le soleil se couche sur ${first.place.name} dans ${formatDelta(untilFirst)}.`
-    : `Le soleil vient de quitter ${first.place.name}.`;
+    ? t(state.lang, 'sunsetIn', {place: first.place.name, delta: formatDelta(untilFirst)})
+    : t(state.lang, 'justLeft', {place: first.place.name});
   el('headline').textContent = headline;
 
   if (second.at) {
     const untilSecond = second.at - now;
     el('subline').textContent = untilSecond > 0
-      ? `Il arrivera sur ${second.place.name} dans ${formatDelta(untilSecond)}.`
-      : `Il a atteint ${second.place.name} il y a ${formatDelta(-untilSecond)}.`;
+      ? t(state.lang, 'arrivesIn', {place: second.place.name, delta: formatDelta(untilSecond)})
+      : t(state.lang, 'reachedAgo', {place: second.place.name, delta: formatDelta(-untilSecond)});
   } else {
-    el('subline').textContent = `${second.place.name} est en ${second.polar === 'day' ? 'jour polaire' : 'nuit polaire'} : le soleil n’y descend pas sous l’horizon en ce moment.`;
+    const polar = t(state.lang, second.polar === 'day' ? 'polarDayLower' : 'polarNightLower');
+    el('subline').textContent = t(state.lang, 'polarNote', {place: second.place.name, polar});
   }
 
   el('gap').textContent = gapMs
-    ? `Vous êtes séparés de ${formatGap(gapMs)} de lumière.`
+    ? t(state.lang, 'separatedBy', {gap: formatGap(gapMs)})
     : '';
 
   fillCard('card-a', a, now, COLOR_A);
@@ -185,7 +198,7 @@ function updateToday(now, a, b, moment) {
   fillTodayItem('today-b', b, atFor(b), now);
 
   el('today-gap').textContent = gapMs
-    ? `La lumière met ${formatGap(gapMs)} pour aller de l’un à l’autre aujourd’hui.`
+    ? t(state.lang, 'todayGap', {gap: formatGap(gapMs)})
     : '';
 }
 
@@ -212,16 +225,16 @@ function fillCard(id, place, now, color) {
   card.querySelector('.dot').style.background = color;
   card.querySelector('.city').textContent = place.name;
   card.querySelector('.country').textContent = place.country || '';
-  card.querySelector('.clock').textContent = time ? `${time} sur place` : '';
+  card.querySelector('.clock').textContent = time ? t(state.lang, 'localTimeSuffix', {time}) : '';
 
   const status = card.querySelector('.status');
-  if (set.polar === 'day') status.textContent = 'Jour polaire';
-  else if (set.polar === 'night') status.textContent = 'Nuit polaire';
-  else status.textContent = day ? 'Il fait jour' : 'Il fait nuit';
+  if (set.polar === 'day') status.textContent = t(state.lang, 'statusPolarDay');
+  else if (set.polar === 'night') status.textContent = t(state.lang, 'statusPolarNight');
+  else status.textContent = t(state.lang, day ? 'statusDay' : 'statusNight');
 
   const detail = card.querySelector('.detail');
-  if (set.at && setTime) detail.textContent = `Coucher à ${setTime}`;
-  else if (set.at) detail.textContent = `Prochain coucher le ${set.at.toLocaleDateString('fr-FR')}`;
+  if (set.at && setTime) detail.textContent = t(state.lang, 'sunsetAt', {time: setTime});
+  else if (set.at) detail.textContent = t(state.lang, 'nextSunsetOn', {date: set.at.toLocaleDateString(localeTag(state.lang))});
   else detail.textContent = '';
 }
 
@@ -231,7 +244,7 @@ function showPair(pair) {
   state.pair = pair;
   el('setup').hidden = true;
   el('view').hidden = false;
-  el('share-url').value = buildUrl(pair.a, pair.b);
+  el('share-url').value = buildUrl(pair.a, pair.b, undefined, state.lang);
   state.lastMapPaint = 0;
   // Une paire nouvellement affichée invalide toute notification programmée pour
   // l'ancienne : on ne reprogramme pas automatiquement, il faut recliquer « Me
@@ -249,6 +262,71 @@ function showSetup() {
   if (state.timer) clearInterval(state.timer);
 }
 
+// ---------------------------------------------------------------- langue
+
+// Priorité au démarrage : préférence mémorisée > détection navigator.language.
+// Le paramètre `l` d'un lien reçu est traité séparément, dans route() : il doit primer
+// pour CETTE vue précise (« le destinataire doit voir la langue choisie par
+// l'expéditeur »), sans pour autant écraser silencieusement la préférence mémorisée du
+// destinataire pour ses prochaines visites — donc on ne la persiste pas ici.
+function initialLanguage() {
+  return loadStoredLanguage() || detectLanguage();
+}
+
+function applyStaticTranslations() {
+  const lang = state.lang;
+  document.querySelectorAll('[data-i18n]').forEach((node) => {
+    node.textContent = t(lang, node.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach((node) => {
+    node.innerHTML = t(lang, node.getAttribute('data-i18n-html'));
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+    node.placeholder = t(lang, node.getAttribute('data-i18n-placeholder'));
+  });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
+    node.setAttribute('aria-label', t(lang, node.getAttribute('data-i18n-aria-label')));
+  });
+  document.title = t(lang, 'pageTitle');
+}
+
+function updateLangButtons() {
+  document.querySelectorAll('.lang-switch button').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.lang === state.lang));
+  });
+}
+
+// Applique une langue déjà déterminée (démarrage, ou lien reçu contenant `l=`) : ne
+// touche PAS au fragment d'URL courant. `persist` contrôle si ce choix devient la
+// préférence mémorisée pour les prochaines visites.
+function applyLanguage(lang, {persist} = {persist: false}) {
+  state.lang = lang;
+  if (persist) storeLanguage(lang);
+  document.documentElement.lang = lang;
+  applyStaticTranslations();
+  updateLangButtons();
+  updateNotifyButton();
+}
+
+// Clic explicite sur le sélecteur : un choix délibéré, donc mémorisé, et qui doit
+// voyager dans le lien si une paire est déjà affichée (pour que le prochain partage
+// respecte la langue qu'on vient de choisir).
+function onLangButtonClick(lang) {
+  if (lang === state.lang) return;
+  applyLanguage(lang, {persist: true});
+  if (state.pair) {
+    const hash = encodePair(state.pair.a, state.pair.b, lang);
+    if (location.hash === hash) {
+      el('share-url').value = buildUrl(state.pair.a, state.pair.b, undefined, lang);
+      paint();
+    } else {
+      // Déclenche hashchange -> route() : state.lang est déjà à jour, route() ne
+      // fait donc rien de plus que réafficher la paire avec la langue courante.
+      location.hash = hash;
+    }
+  }
+}
+
 // ---------------------------------------------------------------- notification
 
 // `Notification` + `setTimeout` tant que l'onglet vit : pas de service worker push,
@@ -262,7 +340,7 @@ function supportsNotifications() {
 async function onNotifyClick() {
   if (!supportsNotifications()) return;
   if (Notification.permission === 'denied') {
-    flash('Notifications bloquées : à réactiver dans les réglages du navigateur.');
+    flash(t(state.lang, 'flashNotifyBlockedSettings'));
     return;
   }
   let permission = Notification.permission;
@@ -287,19 +365,19 @@ function scheduleNotification() {
   const now = new Date();
   const set = nextSunset(now, b.lat, b.lng);
   if (!set.at) {
-    flash('Pas de coucher de soleil à venir là-bas pour l’instant.');
+    flash(t(state.lang, 'flashNoSunsetSoon'));
     return;
   }
   const delay = Math.max(1000, set.at.getTime() - NOTIFY_LEAD_MS - now.getTime());
   if (delay >= MAX_SET_TIMEOUT_MS) {
-    flash('Le prochain coucher de soleil là-bas est trop loin pour être annoncé.');
+    flash(t(state.lang, 'flashSunsetTooFar'));
     return;
   }
   state.notifyTimer = setTimeout(() => {
     state.notifyTimer = null;
     try {
-      new Notification('Le coucher de soleil approche', {
-        body: `Il va bientôt se coucher sur ${b.name}.`,
+      new Notification(t(state.lang, 'notifTitle'), {
+        body: t(state.lang, 'notifBody', {place: b.name}),
         tag: 'sunrisecast-sunset'
       });
     } catch {
@@ -308,7 +386,7 @@ function scheduleNotification() {
     }
     updateNotifyButton();
   }, delay);
-  flash('Vous serez prévenu(e) avant le coucher de soleil.');
+  flash(t(state.lang, 'flashNotifyScheduled'));
   updateNotifyButton();
 }
 
@@ -323,13 +401,13 @@ function updateNotifyButton() {
   if (!supportsNotifications()) { btn.hidden = true; return; }
   if (Notification.permission === 'denied') {
     btn.disabled = true;
-    btn.textContent = 'Notifications bloquées';
+    btn.textContent = t(state.lang, 'notifyBlocked');
   } else if (state.notifyTimer) {
     btn.disabled = false;
-    btn.textContent = 'Vous serez prévenu(e) ✓';
+    btn.textContent = t(state.lang, 'notifyScheduled');
   } else {
     btn.disabled = false;
-    btn.textContent = 'Me prévenir';
+    btn.textContent = t(state.lang, 'notifyDefault');
   }
 }
 
@@ -377,12 +455,12 @@ function wirePicker(slot) {
     chosen = null;
     const q = input.value;
     const coords = parseCoords(q);
-    const hits = coords ? [coords] : searchCities(q);
+    const hits = coords ? [coords] : searchCities(q, state.lang);
     list.innerHTML = '';
     if (!hits.length) { clear(); update(); return; }
     for (const p of hits) {
       const li = document.createElement('li');
-      li.textContent = p.country ? `${p.name} — ${p.country}` : `Coordonnées ${p.name}`;
+      li.textContent = p.country ? `${p.name} — ${p.country}` : t(state.lang, 'coordinatesLabel', {coords: p.name});
       li.addEventListener('mousedown', (e) => { e.preventDefault(); choose(p); });
       list.appendChild(li);
     }
@@ -404,8 +482,14 @@ function update() {
 // ---------------------------------------------------------------- démarrage
 
 function boot() {
+  applyLanguage(initialLanguage(), {persist: false});
+
   pickerA = wirePicker('a');
   pickerB = wirePicker('b');
+
+  document.querySelectorAll('.lang-switch button').forEach((btn) => {
+    btn.addEventListener('click', () => onLangButtonClick(btn.dataset.lang));
+  });
 
   // On pose le fragment et on laisse `hashchange` faire le rendu :
   // un seul chemin d'entrée, que l'on arrive par le bouton ou par un lien reçu.
@@ -413,7 +497,7 @@ function boot() {
     const a = pickerA.get();
     const b = pickerB.get();
     if (!a || !b) return;
-    const hash = encodePair(a, b);
+    const hash = encodePair(a, b, state.lang);
     if (location.hash === hash) showPair({a, b});
     else location.hash = hash;
   });
@@ -425,10 +509,10 @@ function boot() {
     const url = el('share-url').value;
     try {
       await navigator.clipboard.writeText(url);
-      flash('Lien copié');
+      flash(t(state.lang, 'flashLinkCopied'));
     } catch {
       el('share-url').select();
-      flash('Sélectionné, faites Ctrl+C');
+      flash(t(state.lang, 'flashSelectManualCopy'));
     }
   });
 
@@ -464,8 +548,14 @@ function flash(msg) {
 
 function route() {
   const pair = decodePair();
-  if (pair) showPair(pair);
-  else showSetup();
+  if (pair) {
+    // La langue du lien prime pour cette vue précise (voir applyLanguage) : elle
+    // n'est pas mémorisée, seulement affichée.
+    if (pair.lang && pair.lang !== state.lang) applyLanguage(pair.lang, {persist: false});
+    showPair(pair);
+  } else {
+    showSetup();
+  }
 }
 
 // Exposé pour l'inspection manuelle en console pendant les tests.

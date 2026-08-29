@@ -6,21 +6,28 @@
 //
 // Format lisible plutôt qu'opaque : quelqu'un qui reçoit le lien doit pouvoir voir
 // ce qu'il contient avant de cliquer.
-//   #a=Lisbonne|Portugal|38.72|-9.14|Europe/Lisbon&b=Montr%C3%A9al|Canada|45.5|-73.57|America/Toronto
+//   #a=Lisbonne|Portugal|38.72|-9.14|Europe/Lisbon&b=Montr%C3%A9al|Canada|45.5|-73.57|America/Toronto&l=en
+//
+// Le paramètre `l` (langue choisie par l'expéditeur au moment du partage) est facultatif
+// et purement additif : un lien déjà partagé sans ce paramètre continue à se décoder
+// exactement comme avant (l'appelant retombe alors sur sa propre détection automatique).
+// encodePair/buildUrl gardent leur signature à deux arguments valide pour tout appel
+// existant — le paramètre de langue est un 3e argument optionnel, jamais requis.
 
 const SEP = '|';
 
-export function encodePair(a, b) {
+export function encodePair(a, b, lang) {
   const params = new URLSearchParams();
   params.set('a', encodePlace(a));
   params.set('b', encodePlace(b));
+  if (lang) params.set('l', lang);
   return '#' + params.toString();
 }
 
-export function buildUrl(a, b, base = location.href) {
+export function buildUrl(a, b, base = location.href, lang) {
   const url = new URL(base);
   url.hash = '';
-  return url.toString().replace(/#$/, '') + encodePair(a, b);
+  return url.toString().replace(/#$/, '') + encodePair(a, b, lang);
 }
 
 export function decodePair(hash = location.hash) {
@@ -30,7 +37,14 @@ export function decodePair(hash = location.hash) {
   const a = decodePlace(params.get('a'));
   const b = decodePlace(params.get('b'));
   if (!a || !b) return null;
-  return {a, b};
+  return {a, b, lang: decodeLang(params.get('l'))};
+}
+
+// Seules 'fr' et 'en' sont des langues connues : toute autre valeur (absente, corrompue,
+// ou une langue future non encore supportée) redevient null, et l'appelant retombe sur
+// sa détection automatique — jamais de langue inventée à partir d'une valeur invalide.
+function decodeLang(value) {
+  return value === 'fr' || value === 'en' ? value : null;
 }
 
 function encodePlace(p) {
