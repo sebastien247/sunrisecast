@@ -11,7 +11,7 @@
 
 import {test, describe} from 'node:test';
 import assert from 'node:assert/strict';
-import {encodePair, decodePair, buildUrl} from '../src/link.js';
+import {encodePair, decodePair, buildUrl, localizedName} from '../src/link.js';
 
 describe('aller-retour encodage / décodage', () => {
   test('paire simple : tous les champs survivent', () => {
@@ -131,6 +131,53 @@ describe('noms de lieu vides ou trop longs', () => {
     const hash = encodePair(a, {name: 'X', country: 'Y', lat: 1, lng: 1, tz: null});
     const decoded = decodePair(hash);
     assert.equal(decoded.a.name.length, 60);
+  });
+});
+
+describe('localizedName — nom d’affichage relocalisé au décodage', () => {
+  test('une ville connue de CITIES est relocalisée dans la langue demandée', () => {
+    // Lien créé en français (nom encodé « Lisbonne »), lu depuis une interface anglaise.
+    const a = {name: 'Lisbonne', country: 'Portugal', lat: 38.72, lng: -9.14, tz: 'Europe/Lisbon'};
+    const b = {name: 'Montréal', country: 'Canada', lat: 45.5, lng: -73.57, tz: 'America/Toronto'};
+    const decoded = decodePair(encodePair(a, b));
+    assert.equal(localizedName(decoded.a, 'en'), 'Lisbon');
+    assert.equal(localizedName(decoded.b, 'en'), 'Montreal');
+    // Et redemandé en français, on retrouve le nom français d’origine, même si le nom
+    // encodé était en fait déjà en anglais (cas d’un lien créé côté anglophone, lu par
+    // un francophone) : le nom encodé n’a pas d’importance, seules les coordonnées comptent.
+    const encodedInEnglish = encodePair({...a, name: 'Lisbon'}, {...b, name: 'Montreal'});
+    const decodedEn = decodePair(encodedInEnglish);
+    assert.equal(localizedName(decodedEn.a, 'fr'), 'Lisbonne');
+    assert.equal(localizedName(decodedEn.b, 'fr'), 'Montréal');
+  });
+
+  test('decodePair lui-même ne relocalise jamais : il rend le nom brut tel qu’encodé', () => {
+    // Contrat central du correctif : la relocalisation se fait à l’affichage
+    // (localizedName), jamais dans decodePair — sinon buildUrl()/encodePair() sur une
+    // paire déjà décodée réencoderait le nom localisé, et deux personnes en langues
+    // différentes produiraient des liens divergents pour la même paire.
+    const a = {name: 'Lisbonne', country: 'Portugal', lat: 38.72, lng: -9.14, tz: 'Europe/Lisbon'};
+    const b = {name: 'Montréal', country: 'Canada', lat: 45.5, lng: -73.57, tz: 'America/Toronto'};
+    const decoded = decodePair(encodePair(a, b));
+    assert.equal(decoded.a.name, 'Lisbonne');
+    assert.equal(decoded.b.name, 'Montréal');
+  });
+
+  test('coordonnées légèrement décalées (arrondi) restent reconnues à faible tolérance', () => {
+    const near = {name: 'Lisbonne', lat: 38.72 - 0.04, lng: -9.14 + 0.04};
+    assert.equal(localizedName(near, 'en'), 'Lisbon');
+  });
+
+  test('coordonnées trop éloignées ne trouvent aucune correspondance', () => {
+    const far = {name: 'Quelque part', lat: 38.72 + 0.3, lng: -9.14};
+    assert.equal(localizedName(far, 'en'), 'Quelque part');
+  });
+
+  test('une position saisie à la main (hors CITIES) n’est jamais renommée', () => {
+    // 10, 10 n’est proche d’aucune ville de CITIES.
+    const manual = {name: '10.00, 10.00', lat: 10, lng: 10};
+    assert.equal(localizedName(manual, 'en'), '10.00, 10.00');
+    assert.equal(localizedName(manual, 'fr'), '10.00, 10.00');
   });
 });
 

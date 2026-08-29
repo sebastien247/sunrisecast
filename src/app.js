@@ -1,7 +1,7 @@
 import {subsolarPoint, nextSunset, nextSunrise, isDaylight} from './sun.js';
 import {render} from './map.js';
 import {searchCities, toPlace} from './data/cities.js';
-import {decodePair, buildUrl, encodePair} from './link.js';
+import {decodePair, buildUrl, encodePair, localizedName} from './link.js';
 import {t, tCount, localeTag, detectLanguage, loadStoredLanguage, storeLanguage} from './i18n.js';
 import * as SunCalc from './vendor/suncalc.js';
 
@@ -50,6 +50,16 @@ function computeMoment(now, a, b) {
     polarA: sa.polar,
     polarB: sb.polar
   };
+}
+
+// Nom affiché d'un lieu de state.pair, dans la langue courante — jamais `place.name`
+// directement pour un lieu venu du lien. state.pair.a/b gardent toujours le nom brut tel
+// qu'encodé (voir link.js), pour que buildUrl()/encodePair() puissent le réencoder à
+// l'identique quelle que soit la langue affichée à ce moment-là ; seul l'affichage passe
+// par localizedName(), recalculé à chaque appel donc toujours à jour après un changement
+// de langue, sans avoir besoin de redécoder le lien.
+function displayName(place) {
+  return localizedName(place, state.lang);
 }
 
 // ---------------------------------------------------------------- formats
@@ -141,8 +151,8 @@ function paint() {
     render(el('map'), {
       sub: subsolarPoint(now),
       places: [
-        {...a, key: 'a', color: COLOR_A},
-        {...b, key: 'b', color: COLOR_B}
+        {...a, name: displayName(a), key: 'a', color: COLOR_A},
+        {...b, name: displayName(b), key: 'b', color: COLOR_B}
       ],
       highlight: moment.impossible ? null : moment.first.place === a ? 'a' : 'b'
     });
@@ -159,18 +169,18 @@ function paint() {
   const untilFirst = first.at - now;
 
   const headline = untilFirst > 0
-    ? t(state.lang, 'sunsetIn', {place: first.place.name, delta: formatDelta(untilFirst)})
-    : t(state.lang, 'justLeft', {place: first.place.name});
+    ? t(state.lang, 'sunsetIn', {place: displayName(first.place), delta: formatDelta(untilFirst)})
+    : t(state.lang, 'justLeft', {place: displayName(first.place)});
   el('headline').textContent = headline;
 
   if (second.at) {
     const untilSecond = second.at - now;
     el('subline').textContent = untilSecond > 0
-      ? t(state.lang, 'arrivesIn', {place: second.place.name, delta: formatDelta(untilSecond)})
-      : t(state.lang, 'reachedAgo', {place: second.place.name, delta: formatDelta(-untilSecond)});
+      ? t(state.lang, 'arrivesIn', {place: displayName(second.place), delta: formatDelta(untilSecond)})
+      : t(state.lang, 'reachedAgo', {place: displayName(second.place), delta: formatDelta(-untilSecond)});
   } else {
     const polar = t(state.lang, second.polar === 'day' ? 'polarDayLower' : 'polarNightLower');
-    el('subline').textContent = t(state.lang, 'polarNote', {place: second.place.name, polar});
+    el('subline').textContent = t(state.lang, 'polarNote', {place: displayName(second.place), polar});
   }
 
   el('gap').textContent = gapMs
@@ -203,7 +213,7 @@ function updateToday(now, a, b, moment) {
 }
 
 function fillTodayItem(prefix, place, at, now) {
-  el(`${prefix}-name`).textContent = place.name;
+  el(`${prefix}-name`).textContent = displayName(place);
   const time = el(`${prefix}-time`);
   if (!at) {
     // Nuit ou jour polaire ce cycle-ci : rien à afficher, le statut est déjà
@@ -223,7 +233,7 @@ function fillCard(id, place, now, color) {
   const setTime = localTime(set.at, place);
 
   card.querySelector('.dot').style.background = color;
-  card.querySelector('.city').textContent = place.name;
+  card.querySelector('.city').textContent = displayName(place);
   card.querySelector('.country').textContent = place.country || '';
   card.querySelector('.clock').textContent = time ? t(state.lang, 'localTimeSuffix', {time}) : '';
 
@@ -377,7 +387,7 @@ function scheduleNotification() {
     state.notifyTimer = null;
     try {
       new Notification(t(state.lang, 'notifTitle'), {
-        body: t(state.lang, 'notifBody', {place: b.name}),
+        body: t(state.lang, 'notifBody', {place: displayName(b)}),
         tag: 'sunrisecast-sunset'
       });
     } catch {

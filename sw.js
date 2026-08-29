@@ -14,7 +14,12 @@
 // visiteur ayant déjà le service worker v1 installé restait bloqué sur l'ancien site
 // francophone-seul indéfiniment sans ce bump, puisque sw.js lui-même n'a pas changé de
 // contenu et ne déclenche donc jamais de réinstallation.
-const CACHE_VERSION = 'sunrisecast-v2';
+//
+// v3 (2026-08-30) : aperçu Open Graph figé en anglais (index.html) et noms de ville
+// relocalisés à la lecture du lien (app.js, link.js). Ces trois fichiers sont dans
+// ASSET_PATHS ci-dessous : sans ce bump, un visiteur avec le service worker v2 déjà
+// installé continuerait de servir l'ancien app.js/link.js depuis son cache local.
+const CACHE_VERSION = 'sunrisecast-v3';
 
 // Chemins relatifs à la portée du service worker (le dossier où vit sw.js),
 // pas à la racine du domaine : ça laisse le site fonctionner posé dans un

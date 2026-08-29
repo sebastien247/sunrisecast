@@ -1,4 +1,7 @@
-// Encodage de la paire dans le fragment de l'URL.
+// Encodage de la paire dans le fragment de l'URL. Voir aussi localizedName() plus bas,
+// qui corrige au DÉCODAGE (jamais à l'encodage) le nom d'affichage d'un lieu déjà connu
+// de CITIES : un lien créé en français transporte « Lisbonne », et une interface
+// anglaise doit pouvoir en tirer « Lisbon » sans que cela touche au lien lui-même.
 //
 // Le fragment (#) n'est jamais envoyé au serveur, jamais journalisé, jamais mis en cache
 // par un intermédiaire. Les deux lieux vivent uniquement dans le lien que les deux
@@ -14,7 +17,16 @@
 // encodePair/buildUrl gardent leur signature à deux arguments valide pour tout appel
 // existant — le paramètre de langue est un 3e argument optionnel, jamais requis.
 
+import {CITIES} from './data/cities.js';
+
 const SEP = '|';
+
+// Marge autour des coordonnées décodées pour retrouver la ville d'origine dans CITIES.
+// encodePlace arrondit à 4 décimales (round() plus bas) : l'erreur d'arrondi réelle est
+// donc négligeable (< 0,0001°). 0,05° reste largement au-dessus de ça et couvre aussi
+// l'écart entre la précision à 4 décimales du lien et la précision à 2 décimales
+// stockée dans CITIES.
+const CITY_MATCH_TOLERANCE = 0.05;
 
 export function encodePair(a, b, lang) {
   const params = new URLSearchParams();
@@ -83,4 +95,31 @@ function isValidTimeZone(tz) {
 
 function round(n) {
   return Math.round(Number(n) * 10000) / 10000;
+}
+
+// Nom d'affichage d'un lieu décodé, dans la langue courante de l'interface — PAS le
+// nom encodé dans le lien, qui ne change jamais (voir l'en-tête du fichier).
+//
+// Cherche dans CITIES la ville la plus proche des coordonnées de `place`, à
+// CITY_MATCH_TOLERANCE près sur chaque axe. Si on la trouve, on rend son nom dans la
+// langue demandée (colonne fr ou colonne en de CITIES). Sinon on rend le nom du lien
+// tel quel : une position saisie à la main (coordonnées libres, jamais dans CITIES)
+// n'a par construction pas de traduction et ne doit jamais être renommée.
+//
+// N'appelle jamais ceci pour reconstruire un lien à partager (encodePair / buildUrl) :
+// ce serait réencoder le nom localisé plutôt que le nom d'origine, et deux personnes en
+// langues différentes produiraient alors des URL divergentes pour la même paire.
+export function localizedName(place, lang) {
+  if (!place) return place;
+  let best = null;
+  let bestDist = Infinity;
+  for (const c of CITIES) {
+    const dLat = Math.abs(c[2] - place.lat);
+    const dLng = Math.abs(c[3] - place.lng);
+    if (dLat > CITY_MATCH_TOLERANCE || dLng > CITY_MATCH_TOLERANCE) continue;
+    const dist = dLat * dLat + dLng * dLng;
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  if (!best) return place.name;
+  return lang === 'en' ? best[5] : best[0];
 }

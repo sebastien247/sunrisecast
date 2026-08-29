@@ -111,9 +111,11 @@ function buildSvg() {
 
   // Lisbonne / Montréal : mêmes coordonnées que l'exemple vécu en production
   // (ops/COMPANY.md) et que le round-trip de test/link.test.js. Servent ici de
-  // repères visuels, pas de placeholders inventés.
-  const lisbon = {name: 'Lisbonne', lat: 38.72, lng: -9.14};
-  const montreal = {name: 'Montréal', lat: 45.5, lng: -73.57};
+  // repères visuels, pas de placeholders inventés. Noms en anglais car l'aperçu
+  // og.png est figé en anglais (100 % du démarchage prévu vise des communautés
+  // anglophones), voir la note dans index.html.
+  const lisbon = {name: 'Lisbon', lat: 38.72, lng: -9.14};
+  const montreal = {name: 'Montreal', lat: 45.5, lng: -73.57};
 
   const land = landPathD();
   const terminator = terminatorPathD(sub);
@@ -162,15 +164,22 @@ function buildSvg() {
   <text x="72" y="372" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
         font-size="20" font-weight="700" letter-spacing="4" fill="${SUN}">SUNRISECAST</text>
 
-  <text x="72" y="434" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
-        font-size="48" font-weight="650" fill="${INK}">Le soleil qui se couche sur elle</text>
-  <text x="72" y="492" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
-        font-size="48" font-weight="650" fill="${INK}">est le même qui se couchera sur vous.</text>
+  <!-- Titre repris mot pour mot du sous-titre anglais validé dans docs/growth/page.md
+       ("The sunset she's watching tonight is the exact same one that will reach you
+       later."), replié sur 3 lignes plutôt que 2 : la version anglaise est nettement
+       plus longue que le français et déborderait du cadre de 1200px repliée sur 2
+       lignes comme l'était le texte français. Aucun mot ajouté ni retiré. -->
+  <text x="72" y="436" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="48" font-weight="650" fill="${INK}">The sunset she's watching tonight</text>
+  <text x="72" y="490" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="48" font-weight="650" fill="${INK}">is the exact same one</text>
+  <text x="72" y="544" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="48" font-weight="650" fill="${INK}">that will reach you later.</text>
 
-  <text x="72" y="540" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
-        font-size="24" fill="${INK_SOFT}">Voyez la ligne dorée qui relie vos deux fuseaux, en direct.</text>
+  <text x="72" y="584" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="24" fill="${INK_SOFT}">See the golden line connecting your two time zones, live.</text>
 
-  <text x="${W - 72}" y="592" text-anchor="end" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
+  <text x="${W - 72}" y="612" text-anchor="end" font-family="Segoe UI, ui-sans-serif, system-ui, sans-serif"
         font-size="17" fill="${INK_FAINT}">app.taada.top/sunrisecast</text>
 </svg>`;
 }
