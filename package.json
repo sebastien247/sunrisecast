@@ -2,13 +2,19 @@
   "name": "sunrisecast",
   "version": "0.1.0",
   "private": true,
+  "description": "Deux personnes separees par des fuseaux voient le meme coucher de soleil les traverser l une apres l autre.",
+  "license": "MIT",
   "type": "module",
-  "dependencies": {
-    "suncalc": "^2.0.1",
-    "topojson-client": "^3.1.0",
-    "world-atlas": "^2.0.2"
+  "scripts": {
+    "test": "node --test test/sun.test.js test/link.test.js",
+    "build:land": "node tools/build-land.mjs",
+    "build:og": "node tools/build-og.mjs",
+    "serve": "node serve.mjs . 8123"
   },
   "devDependencies": {
+    "suncalc": "^2.0.1",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
     "@resvg/resvg-js": "^2.6.2"
   }
 }
