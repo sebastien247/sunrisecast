@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+.claude/
+
+# Strategie interne : prix, messages de recrutement, seuils d abandon.
+# Volontairement hors du depot public.
+docs/
+ops/

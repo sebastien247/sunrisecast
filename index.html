@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SunriseCast — le même coucher de soleil</title>
+<meta name="description" content="Le soleil qui se couche sur elle est le même qui se couchera sur toi. Voyez quand il arrive.">
+<meta name="theme-color" content="#0a0b14">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- iOS ignore largement le web manifest pour l'ajout à l'écran d'accueil : ces balises
+     sont ce qui lui fait afficher une vraie icône et lancer en plein écran sans barre Safari. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SunriseCast">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%230a0b14'/><circle cx='256' cy='292' r='128' fill='%23ffb45c'/><rect y='292' width='512' height='220' fill='%230a0b14'/></svg>">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='20' r='8' fill='%23ffb45c'/><rect y='20' width='32' height='12' fill='%230a0b14'/></svg>">
+</head>
+<body>
+
+<main id="setup" class="screen setup">
+  <div class="intro">
+    <p class="kicker">SunriseCast</p>
+    <h1>Le soleil qui se couche sur elle<br>est le même qui se couchera sur vous.</h1>
+    <p class="lede">Il fait le tour de la Terre à 1&nbsp;670&nbsp;km/h. Choisissez deux endroits, on vous dit combien de temps il met pour aller de l’un à l’autre.</p>
+  </div>
+
+  <div class="fields">
+    <label class="field">
+      <span>Là où vous êtes</span>
+      <input id="input-a" type="text" autocomplete="off" spellcheck="false" placeholder="Une ville, ou 48.86, 2.35">
+      <ul id="list-a" class="suggest" hidden></ul>
+    </label>
+
+    <label class="field">
+      <span>Là où elle est</span>
+      <input id="input-b" type="text" autocomplete="off" spellcheck="false" placeholder="Une ville, ou -33.87, 151.21">
+      <ul id="list-b" class="suggest" hidden></ul>
+    </label>
+
+    <button id="go" type="button" disabled>Voir la ligne</button>
+  </div>
+
+  <p class="privacy">Aucun compte, aucun serveur, aucune donnée enregistrée. Les deux lieux vivent uniquement dans le lien que vous vous partagez.</p>
+</main>
+
+<main id="view" class="screen view" hidden>
+  <section class="stage">
+    <canvas id="map" aria-label="Carte du monde avec la ligne du coucher de soleil"></canvas>
+  </section>
+
+  <section class="readout">
+    <h2 id="headline">…</h2>
+    <p id="subline">…</p>
+    <p id="gap" class="gap"></p>
+
+    <section id="today" class="today" hidden aria-live="off">
+      <h3>Aujourd’hui</h3>
+      <div class="today-grid">
+        <div class="today-item">
+          <span class="today-name" id="today-a-name"></span>
+          <span class="today-time" id="today-a-time"></span>
+        </div>
+        <div class="today-item">
+          <span class="today-name" id="today-b-name"></span>
+          <span class="today-time" id="today-b-time"></span>
+        </div>
+      </div>
+      <p class="today-gap" id="today-gap"></p>
+    </section>
+
+    <div class="cards">
+      <article id="card-a" class="card">
+        <header><i class="dot"></i><b class="city"></b><small class="country"></small></header>
+        <p class="clock"></p>
+        <p class="status"></p>
+        <p class="detail"></p>
+      </article>
+      <article id="card-b" class="card">
+        <header><i class="dot"></i><b class="city"></b><small class="country"></small></header>
+        <p class="clock"></p>
+        <p class="status"></p>
+        <p class="detail"></p>
+      </article>
+    </div>
+
+    <div class="actions">
+      <input id="share-url" type="text" readonly aria-label="Lien à partager">
+      <button id="copy" type="button">Copier le lien</button>
+      <button id="share" type="button" class="primary">Partager</button>
+      <button id="notify" type="button" class="ghost">Me prévenir</button>
+      <button id="change" type="button" class="ghost">Changer de lieux</button>
+    </div>
+
+    <details class="howto">
+      <summary>Le garder sous la main</summary>
+      <p><b>iPhone</b> — bouton Partager dans Safari, puis « Sur l’écran d’accueil ».</p>
+      <p><b>Android</b> — menu ⋮ de Chrome, puis « Ajouter à l’écran d’accueil ».</p>
+      <p>Le lien contient tout. Rien n’est stocké ailleurs, rien ne se perd si vous changez de téléphone.</p>
+    </details>
+  </section>
+</main>
+
+<div id="flash" class="flash" role="status" aria-live="polite"></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

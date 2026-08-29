@@ -1,0 +1,11 @@
+{
+  "name": "sunrisecast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "suncalc": "^2.0.1",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}
