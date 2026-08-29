@@ -13,7 +13,14 @@ const DEG = 180 / Math.PI;
 export function subsolarPoint(date) {
   const lng0 = argmax(-180, 180, (lng) => getPosition(date, 0, lng).altitude);
   const dec = argmax(-90, 90, (lat) => getPosition(date, lat, lng0).altitude);
-  return {lng: lng0, lat: dec};
+  // Le raffinement de argmax avance par x ± pas et peut franchir la borne de quelques
+  // millièmes de degré. Sans effet sur le rendu, les cosinus étant périodiques, mais on
+  // ne renvoie pas une longitude hors domaine : elle est lue ailleurs et comparée.
+  return {lng: wrapLongitude(lng0), lat: dec};
+}
+
+function wrapLongitude(lng) {
+  return ((((lng + 180) % 360) + 360) % 360) - 180;
 }
 
 // Recherche du maximum par balayage grossier puis raffinement dichotomique.
