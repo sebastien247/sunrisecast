@@ -8,7 +8,13 @@
 // CACHE_VERSION change à chaque déploiement qui modifie un fichier mis en cache :
 // c'est ce qui purge l'ancien cache dans `activate`. Oublier de le monter fait
 // vivre une version périmée indéfiniment chez les visiteurs revenus hors ligne.
-const CACHE_VERSION = 'sunrisecast-v1';
+//
+// v2 (2026-08-29) : passage du site en bilingue fr/en (index.html, app.js, link.js,
+// cities.js, styles.css tous modifiés). Constaté en le vérifiant en production : un
+// visiteur ayant déjà le service worker v1 installé restait bloqué sur l'ancien site
+// francophone-seul indéfiniment sans ce bump, puisque sw.js lui-même n'a pas changé de
+// contenu et ne déclenche donc jamais de réinstallation.
+const CACHE_VERSION = 'sunrisecast-v2';
 
 // Chemins relatifs à la portée du service worker (le dossier où vit sw.js),
 // pas à la racine du domaine : ça laisse le site fonctionner posé dans un
